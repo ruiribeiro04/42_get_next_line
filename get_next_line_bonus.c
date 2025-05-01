@@ -1,16 +1,16 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   get_next_line.c                                    :+:      :+:    :+:   */
+/*   get_next_line_bonus.c                              :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: ruiferna <ruiferna@student.42porto.com>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/04/23 09:43:43 by ruiferna          #+#    #+#             */
-/*   Updated: 2025/05/01 16:19:46 by ruiferna         ###   ########.fr       */
+/*   Created: 2025/05/01 14:21:45 by ruiferna          #+#    #+#             */
+/*   Updated: 2025/05/01 16:22:51 by ruiferna         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "get_next_line.h"
+#include "get_next_line_bonus.h"
 
 static char	*ft_read_buffer(int fd, char *stash)
 {
@@ -79,16 +79,16 @@ static char	*ft_save_rest(char *stash)
 
 char	*get_next_line(int fd)
 {
-	static char	*stash;
+	static char	*stash[1024];
 	char		*line;
 
 	if (fd < 0 || fd >= 1024 || BUFFER_SIZE <= 0)
 		return (NULL);
-	stash = ft_read_buffer(fd, stash);
-	if (!stash)
+	stash[fd] = ft_read_buffer(fd, stash[fd]);
+	if (!stash[fd])
 		return (NULL);
-	line = ft_extract_line(stash);
-	stash = ft_save_rest(stash);
+	line = ft_extract_line(stash[fd]);
+	stash[fd] = ft_save_rest(stash[fd]);
 	return (line);
 }
 /*
@@ -99,33 +99,61 @@ char	*get_next_line(int fd)
 
 int	main(int argc, char **argv)
 {
-	int		fd;
+	int		*fds;
 	char	*line;
-	int		line_num;
+	int		num_files;
+	int		active_files;
+	int		i;
 
-	if (argc != 2)
+	if (argc < 2)
 	{
-		printf("Usage: %s <filename>\n", argv[0]);
+		printf("Usage: %s <file1> [file2] [file3] ...\n", argv[0]);
 		return (1);
 	}
-	fd = open(argv[1], O_RDONLY);
-	if (fd == -1)
+	num_files = argc - 1;
+	fds = malloc(sizeof(int) * num_files);
+	if (!fds)
+		return (perror("Error allocating memory for fds"), 1);
+	i = 0;
+	while (i < num_files)
 	{
-		perror("Error opening file");
-		return (1);
+		fds[i] = open(argv[i + 1], O_RDONLY);
+		if (fds[i] == -1)
+		{
+			perror("Error opening file");
+			while (--i >= 0)
+				close(fds[i]);
+			free(fds);
+			return (1);
+		}
+		i++;
 	}
-	line_num = 1;
-	while ((line = get_next_line(fd)) != NULL)
+	active_files = num_files;
+	while (active_files > 0)
 	{
-		printf("Line %d: %s", line_num++, line);
-		free(line);
-		line = NULL;
+		i = 0;
+		while (i < num_files)
+		{
+			if (fds[i] != -1)
+			{
+				line = get_next_line(fds[i]);
+				if (line != NULL)
+				{
+					printf("FD %d: %s", fds[i], line);
+					free(line);
+				}
+				else
+				{
+					if (close(fds[i]) == -1)
+						perror("Error closing file");
+					fds[i] = -1;
+					active_files--;
+				}
+			}
+			i++;
+		}
 	}
-	if (close(fd) == -1)
-	{
-		perror("Error closing file");
-		return (1);
-	}
+	free(fds);
 	return (0);
 }
 */
